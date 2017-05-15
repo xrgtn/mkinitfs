@@ -1,0 +1,35 @@
+#!/bin/sh
+#
+# This script should be installed into /etc/kernel/postinst.d/
+# (scripts in this directory are run during "make install").
+# This way each time you install a new vmlinuz-x.x.x into /boot,
+# corresponding initrd-x.x.x image will be automatically generated.
+
+kernver="$1"
+vmlinuz="$2"
+initrd="${vmlinuz/vmlinuz/initrd}"
+
+if [ -e "$initrd" ] ; then
+    mv "$initrd" "$initrd.old"
+fi
+
+rm -rf "$initrd.tmp"
+if ~user/mkinitfs.sh -k "$kernver" "$initrd.tmp" \
+&& cd "$initrd.tmp" ; then
+    if find . -print0 | cpio -o0Hnewc >/dev/null 2>&1 ; then
+	if find . -print0 | cpio -ov0Hnewc \
+	| bzip2 >"$initrd" ; then
+	    E=0
+	else
+	    E="$?"
+	fi
+    else
+	E="$?"
+    fi
+else
+    E="$?"
+fi
+rm -rf "$initrd.tmp"
+exit "$E"
+
+# vi:set sw=4 noet ts=8 tw=71:
