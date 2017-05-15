@@ -6,6 +6,9 @@ system from non-LUKS volume with custom cipher/keysize/hash parameters.
 Hence I wrote my own one that:
  * installs sufficient set of kernel modules, statically-linked
    busybox, lvm and cryptsetup into initramfs archive
+ * generates modules dependency files (modules.dep etc) and checks that
+   there are no unresolved dependencies/symbols in the installed set of
+   kernel modules
  * adds /init script that:
    * loads small set of kernel modules
    * takes names of encrypted volumes from kernel cmdline
