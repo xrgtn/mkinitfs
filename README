@@ -1,0 +1,16 @@
+mkinitfs.sh - generate Linux initramfs for booting non-LUKS
+cryptovolumes
+
+I didn't find any initramfs generators to allow booting GNU/Linux
+system from non-LUKS volume with custom cipher/keysize/hash parameters.
+Hence I wrote my own one that:
+ * installs sufficient set of kernel modules, statically-linked
+   busybox, lvm and cryptsetup into initramfs archive
+ * adds /init script that:
+   * loads small set of kernel modules
+   * takes names of encrypted volumes from kernel cmdline
+   * takes custom cipher/keysize/hash parameters
+   * decrypts cryptvols, searches for root volume, mounts it,
+     does switch_root and passes control to /sbin/init
+   * optionally mounts /usr partition before passing control
+     to /sbin/init
