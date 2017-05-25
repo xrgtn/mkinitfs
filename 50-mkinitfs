@@ -14,9 +14,12 @@ if [ -e "$initrd" ] ; then
 fi
 
 rm -rf "$initrd.tmp"
-if ~user/mkinitfs.sh -k "$kernver" "$initrd.tmp" \
+if mkinitfs.sh -k "$kernver" "$initrd.tmp" \
 && cd "$initrd.tmp" ; then
+    # Check "find|cpio" pipeline without writing actual initrd image
+    # first:
     if find . -print0 | cpio -o0Hnewc >/dev/null 2>&1 ; then
+	# Write bzipped initrd image:
 	if find . -print0 | cpio -ov0Hnewc \
 	| bzip2 >"$initrd" ; then
 	    E=0
