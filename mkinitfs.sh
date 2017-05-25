@@ -1,5 +1,7 @@
 #!/bin/sh
 
+TMPOUT="/tmp/mkinitfs-$$"
+
 # Accepts 1 or 2 arguments:
 #   die [errcode] message
 # Prints error message and exits with errcode (or 1):
@@ -12,6 +14,7 @@ die() {
     if [ 0 -lt $# ] ; then
 	echo "ERROR:" "$@" 1>&2
     fi
+    rm -f "$TMPOUT"
     exit "$E"
 }
 
@@ -113,17 +116,26 @@ kernel/drivers/usb     [eoux]hci-hcd hci*pci ^usbcore ^hid.ko usbhid common stor
 kernel/fs              ext2 ext3 ext4 xfs isofs ufs jfs reiserfs mbcache jbd2 fscrypto
 kernel/lib             crc16 crc32 crc-itu-t crc-t10dif zlib_inflate
 EOF
-    # XXX: create modules.order and modules.builtin symlinks for
-    # /sbin/depmod:
+    # Copy modules.order and modules.builtin files for /sbin/depmod:
     for i in order builtin ; do
-	t="${INITFSDIR}lib/modules/$k/modules.$i"
 	s="/lib/modules/$k/modules.$i"
+	t="${INITFSDIR}lib/modules/$k/modules.$i"
 	if ! [ -e "$t" ] ; then
-	    ln -s "$s" "$t"
+	    cp --preserve=mode,timestamps "$s" "$t"
 	fi
     done
-    /sbin/depmod -b"${INITFSDIRNOTRAILINGSLASH}" \
-	-eF"/boot/System.map-$k" "$k"
+    # Generate depmod files for initrd subset of kernel modules:
+    if ! /sbin/depmod -b"${INITFSDIRNOTRAILINGSLASH}" \
+	    -eF"/boot/System.map-$k" "$k" >"$TMPOUT" 2>&1 ; then
+	E="$?"
+	cat "$TMPOUT" >&2
+	die "$E" "depmod failed"
+    fi
+    if grep WARNING "$TMPOUT" >/dev/null ; then
+	cat "$TMPOUT" >&2
+	die "depmod found missing dependencies"
+    fi
+    rm -f "$TMPOUT"
 done
 
 # Create all other directories besides /lib/modules/xxx:
