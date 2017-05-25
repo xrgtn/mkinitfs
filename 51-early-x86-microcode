@@ -1,0 +1,57 @@
+#!/bin/sh
+#
+# Prepend cpio archive with Intel CPU microcode to initrd-x.x.x image,
+# for "early microcode loading" method (see
+# /usr/src/linux/Documentation/x86/early-microcode.txt).
+#
+# This script should be installed into /etc/kernel/postinst.d/
+# directory to be run after the 50-mkinifs one. This way each time you
+# install a new vmlinuz-x.x.x and create an initrd-x.x.x image for it,
+# appropriate firmware for the host CPU will be automatically
+# prepended.
+
+initrd="${2/vmlinuz/initrd}"
+E=0
+
+prepend_ucode() {
+    echo "Prepending Intel CPU microcode $1 to $2"
+    rm -rf "$initrd.tmp"
+    mkdir -p "$initrd.tmp/kernel/x86/microcode/" || return "$?"
+    cp -p "$1" "$initrd.tmp/kernel/x86/microcode/GenuineIntel.bin" \
+	|| return "$?"
+    ( cd "$initrd.tmp" ; find . -print0 | cpio -ov0Hnewc ) \
+	>"$initrd.ucode" || return "$?"
+    cat "$initrd.ucode" "$initrd" >"$initrd+ucode" || return "$?"
+    rm -rf "$initrd.tmp" "$initrd.ucode"
+    mv "$initrd+ucode" "$initrd" || return "$?"
+}
+
+if [ -e "$initrd" ] ; then
+    # Find current CPU family/model/stepping via /proc/cpuinfo.
+    #
+    # For example, microcode file for Intel Atom N270 is
+    # [/lib/firmware/]intel-ucode/06-1c-02. The xx-yy-zz in the filename
+    # means cpu family, model and stepping in hex format.
+    # In /proc/cpuinfo these values are given in decimal:
+    # cpu family	: 6
+    # model		: 28
+    # stepping		: 2
+    while read a b c d ; do
+	case "$a$b$c" in
+	    cpufamily:) f="`printf %02x "$d"`";;
+	    model:*)    m="`printf %02x "$c"`";;
+	    stepping:*) s="`printf %02x "$c"`";;
+	esac
+    done </proc/cpuinfo
+    # If family/model/stepping is known, look for microcode file:
+    case "$f-$m-$s" in ??-??-??)
+	if [ -f /lib/firmware/intel-ucode/"$f-$m-$s" ] ; then
+	    prepend_ucode /lib/firmware/intel-ucode/"$f-$m-$s" \
+		"$initrd"
+	    E="$?"
+	fi ;;
+    esac
+fi
+exit "$E"
+
+# vi:set sw=4 noet ts=8 tw=71:
