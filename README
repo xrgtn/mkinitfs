@@ -13,7 +13,32 @@ Hence I wrote my own one that:
    * loads small set of kernel modules
    * takes names of encrypted volumes from kernel cmdline
    * takes custom cipher/keysize/hash parameters
-   * decrypts cryptvols, searches for root volume, mounts it,
-     does switch_root and passes control to /sbin/init
+   * decrypts encrypted volumes (in the exact order they are specified
+     on the commandline)
+   * patches i915 VBIOS using 915resolution if it's available and
+     915resolution=<mode>:<W>x<H> option is passed on cmdline
+   * searches for "hibernate resume" volume and attempts resuming
+   * searches for root volume, mounts it, does switch_root and passes
+     control to /sbin/init
    * optionally mounts /usr partition before passing control
      to /sbin/init
+
+915resolution
+
+mkinitfs uses 915resolution (http://915resolution.mango-lang.org/) to
+patch i915 VBIOS _before_ initiating resuming from hibernate. If you
+suspend with patched VBIOS and resume with unpatched, Xorg will crash:
+
+[ 15330.043] (II) VESA(0): Setting up VESA Mode 0x15C (1024x600)
+[ 15330.044] (II) VESA(0): VBESetVBEMode failed
+[ 15330.049] (EE) 
+Fatal server error:
+[ 15330.049] (EE) EnterVT failed for screen 0
+[ 15330.049] (EE) 
+[ 15330.049] (EE) 
+Please consult the The X.Org Foundation support 
+         at http://wiki.x.org
+ for help. 
+[ 15330.049] (EE) Please also check the log file at "/var/log/Xorg.0.log" for additional information.
+[ 15330.050] (EE) 
+[ 15330.198] (EE) Server terminated with error (1). Closing log file.
