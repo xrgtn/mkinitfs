@@ -169,6 +169,16 @@ activation {
 }
 EOF
 
+# Add 915resolution if present:
+for p in /usr/local/sbin /usr/local/bin /usr/sbin /usr/bin /sbin \
+/bin ; do
+    if [ -x "$p/915resolution" ] ; then
+	cp --preserve=mode,timestamps "$p/915resolution" \
+	    "${INITFSDIR}sbin/"
+	break
+    fi
+done
+
 # Add initscript (cut the appropriate part of $0 script):
 echo '#!/bin/busybox sh' >"${INITFSDIR}init" ; # prepend shebang
 chmod 0755 "${INITFSDIR}init"
