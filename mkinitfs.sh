@@ -340,6 +340,7 @@ modules libps2 serio atkbd i8042 hid hid-generic hidp usbhid
 # and to find out which volumes to decrypt:
 for a in `cat /proc/cmdline` ; do
     case "$a" in
+	resume=?*) resume="${a#resume=}";;
 	recovery) recovery=1;;
 	root=?*) root="${a#root=}";;
 	single) single=1;;
@@ -348,6 +349,20 @@ for a in `cat /proc/cmdline` ; do
 	rd.luks.uuid=?*) decrypt "UUID=${a#rd.luks.uuid=}";;
     esac
 done
+
+# Try to resume from hibernate if there was resume= parameter:
+if [ "z$resume" != "z" ] && [ -f /sys/power/resume ] ; then
+    resumedev="`busybox findfs "$resume" 2>/dev/null`"
+    if [ "z$resumedev" != "z" ] ; then
+	resumemn="`busybox stat -L -c "%t %T" "$resumedev"`"
+	if [ "z$resumemn" != "z" ] ; then
+	    read maj min <<EOF
+$resumemn
+EOF
+	    printf '%u:%u\n' "0x$maj" "0x$min" >/sys/power/resume
+	fi
+    fi
+fi
 
 # Search for root volume and mount it:
 rootdev="`busybox findfs "$root" 2>/dev/null`"
