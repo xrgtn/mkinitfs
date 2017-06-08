@@ -315,6 +315,26 @@ mount_fstab_ro() {
     fi
 }
 
+set915resolution() {
+    case "$1" in
+	*:*x*)
+	    if [ -x /sbin/915resolution ] ; then
+		wh="${1#*:}"
+		# Temporarily loosen iopl()/outb() restrictions:
+		griof="/proc/sys/kernel/grsecurity/disable_priv_io"
+		grio=0
+		if [ -f "$griof" ] ; then read grio <"$griof" ; fi
+		[ "z$grio" != "z0" ] && echo 0 >"$griof"
+		# Set i915 resolution:
+		echo "Setting mode 0x"${1%:*}"'s resolution to $wh"
+		/sbin/915resolution "${1%:*}" "${wh%x*}" "${wh#*x}"
+		# Restore iopl()/outb() restrictions:
+		[ "z$grio" != "z0" ] && echo "$grio" >"$griof"
+	    fi
+	    ;;
+    esac
+}
+
 # Add /bin and /sbin to PATH:
 path0="$PATH"
 for p in /bin /sbin ; do
@@ -350,6 +370,7 @@ modules libps2 serio atkbd i8042 hid hid-generic hidp usbhid
 # and to find out which volumes to decrypt:
 for a in `cat /proc/cmdline` ; do
     case "$a" in
+	915resolution=?*) set915resolution "${a#915resolution=}";;
 	resume=?*) resume="${a#resume=}";;
 	recovery) recovery=1;;
 	root=?*) root="${a#root=}";;
