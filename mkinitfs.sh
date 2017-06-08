@@ -169,15 +169,16 @@ activation {
 }
 EOF
 
-# Add initscript (cut the appropriate tail of $0 script):
-sed '1,/^# XXX:.*\/init script:/d' <"$0" >"${INITFSDIR}init"
+# Add initscript (cut the appropriate part of $0 script):
+echo '#!/bin/busybox sh' >"${INITFSDIR}init" ; # prepend shebang
 chmod 0755 "${INITFSDIR}init"
-touch -r "$0" "${INITFSDIR}init"
+sed -n '/^# XXX: \/init start/,/^# XXX: \/init end/p' <"$0" \
+    >>"${INITFSDIR}init" ; # cut from '/init start' to '/init end'
+touch -r "$0" "${INITFSDIR}init" ; # copy timestamp from mkinitfs.sh
 
 exit
 
-# XXX: initrd's /init script:
-#!/bin/busybox sh
+# XXX: /init start:
 
 # Load modules.
 modules() {
@@ -341,6 +342,7 @@ for a in `cat /proc/cmdline` ; do
     case "$a" in
 	recovery) recovery=1;;
 	root=?*) root="${a#root=}";;
+	single) single=1;;
 	crypt_csh=*) crypt_csh="${a#crypt_csh=}";;
 	crypt_root=?*) decrypt "${a#crypt_root=}";;
 	rd.luks.uuid=?*) decrypt "UUID=${a#rd.luks.uuid=}";;
@@ -375,6 +377,11 @@ busybox umount /sys
 busybox umount /proc
 busybox umount /dev
 cd /mnt/root
-exec busybox switch_root /mnt/root /sbin/init
+if [ "z$single" = "z1" ] ; then
+    exec busybox switch_root /mnt/root /sbin/init S
+else
+    exec busybox switch_root /mnt/root /sbin/init
+fi
 
+# XXX: /init end.
 # vi:set filetype=sh sw=4 noet ts=8 tw=71:
