@@ -354,13 +354,14 @@ done
 if [ "z$resume" != "z" ] && [ -f /sys/power/resume ] ; then
     resumedev="`busybox findfs "$resume" 2>/dev/null`"
     if [ "z$resumedev" != "z" ] ; then
-	resumemn="`busybox stat -L -c "%t %T" "$resumedev"`"
-	if [ "z$resumemn" != "z" ] ; then
-	    read maj min <<EOF
-$resumemn
-EOF
-	    printf '%u:%u\n' "0x$maj" "0x$min" >/sys/power/resume
-	fi
+	mn="`busybox stat -L -c "%t:%T" "$resumedev"`"
+	case "$mn" in
+	    *:*)
+		echo "resuming from ${mn%:*}:${mn#*:}"
+		printf '%u:%u\n' "0x${mn%:*}" "0x${mn#*:}" \
+		    >/sys/power/resume
+		;;
+	esac
     fi
 fi
 
