@@ -9,49 +9,104 @@
 # install a new vmlinuz-x.x.x and create an initrd-x.x.x image for it,
 # appropriate firmware for the host CPU will be automatically
 # prepended.
+#
+# Run as: 51-early-x86-microcode KVER VMLINUZ, e.g.:
+#	/etc/kernel/postinst.d/51-early-x86-microcode \
+#		4.8.17-hardened-r2 /boot/vmlinuz-4.8.17-hardened-r2
 
-initrd="${2/vmlinuz/initrd}"
+if [ "z$2" = "z" ] ; then
+    echo "USAGE: $0 KERNVER VMLINUZ" 1>&2
+    exit 1
+fi
+INITRD="${2/vmlinuz/initrd}"
+if ! [ -e "$INITRD" ] ; then
+    echo "USAGE: $INITRD not found" 1>&2
+    exit 1
+    if ! [ -f "$INITRD" ] ; then
+	echo "USAGE: $INITRD is not a file" 1>&2
+	exit 1
+    fi
+fi
+
+TDIR="/tmp/tmp-early-x86-microcode-$$"
+if ! mkdir -m 0750 "$TDIR" ; then
+    E="$?"
+    echo "ERROR: mkdir $TDIR" 1>&2
+    exit "$E"
+fi
+rm_rf_tdir() {
+    rm -rf "$TDIR"
+}
+trap rm_rf_tdir EXIT
+
+TMPUCODEDIR="$TDIR/${INITRD##*/}.ucode"
+TMPINITRD="$TDIR/${INITRD##*/}"
 E=0
 
-prepend_ucode() {
+prepend_intel_ucode() {
     echo "Prepending Intel CPU microcode $1 to $2"
-    rm -rf "$initrd.tmp"
-    mkdir -p "$initrd.tmp/kernel/x86/microcode/" || return "$?"
-    cp -p "$1" "$initrd.tmp/kernel/x86/microcode/GenuineIntel.bin" \
+    rm -rf "$TMPUCODEDIR"
+    mkdir -p "$TMPUCODEDIR/kernel/x86/microcode/" || return "$?"
+    cp -p "$1" "$TMPUCODEDIR/kernel/x86/microcode/GenuineIntel.bin" \
 	|| return "$?"
-    ( cd "$initrd.tmp" ; find . -print0 | cpio -ov0Hnewc ) \
-	>"$initrd.ucode" || return "$?"
-    cat "$initrd.ucode" "$initrd" >"$initrd+ucode" || return "$?"
-    rm -rf "$initrd.tmp" "$initrd.ucode"
-    mv "$initrd+ucode" "$initrd" || return "$?"
+    ( cd "$TMPUCODEDIR" ; find . -print0 | cpio -ov0Hnewc ) \
+	| cat - "$INITRD" >"$TMPINITRD" || return "$?"
+    mv "$TMPINITRD" "$INITRD" || return "$?"
 }
 
-if [ -e "$initrd" ] ; then
-    # Find current CPU family/model/stepping via /proc/cpuinfo.
-    #
-    # For example, microcode file for Intel Atom N270 is
-    # [/lib/firmware/]intel-ucode/06-1c-02. The xx-yy-zz in the filename
-    # means cpu family, model and stepping in hex format.
-    # In /proc/cpuinfo these values are given in decimal:
-    # cpu family	: 6
-    # model		: 28
-    # stepping		: 2
-    while read a b c d ; do
-	case "$a$b$c" in
-	    cpufamily:) f="`printf %02x "$d"`";;
-	    model:*)    m="`printf %02x "$c"`";;
-	    stepping:*) s="`printf %02x "$c"`";;
-	esac
-    done </proc/cpuinfo
-    # If family/model/stepping is known, look for microcode file:
-    case "$f-$m-$s" in ??-??-??)
-	if [ -f /lib/firmware/intel-ucode/"$f-$m-$s" ] ; then
-	    prepend_ucode /lib/firmware/intel-ucode/"$f-$m-$s" \
-		"$initrd"
-	    E="$?"
-	fi ;;
+prepend_all_ucode() {
+    rm -rf "$TMPUCODEDIR"
+    mkdir -p "$TMPUCODEDIR/kernel/x86/microcode/" || return "$?"
+    # dump _ALL_ microcodes into one file:
+    if [ -d /lib/firmware/intel-ucode/ ] ; then
+	echo "Prepending Intel CPU microcode"
+	cat /lib/firmware/intel-ucode/*-*-* \
+	    >>"$TMPUCODEDIR/kernel/x86/microcode/GenuineIntel.bin" \
+	    || return "$?"
+    fi
+    if [ -d /lib/firmware/amd-ucode/ ] ; then
+	echo "Prepending AMD CPU microcode"
+	cat /lib/firmware/amd-ucode/*.bin \
+	    >>"$TMPUCODEDIR/kernel/x86/microcode/AuthenticAMD.bin" \
+	    || return "$?"
+    fi
+    ( cd "$TMPUCODEDIR" ; find . -print0 | cpio -ov0Hnewc ) \
+	| cat - "$INITRD" >"$TMPINITRD" || return "$?"
+    mv "$TMPINITRD" "$INITRD" || return "$?"
+}
+
+# Find current CPU family/model/stepping via /proc/cpuinfo.
+#
+# For example, microcode file for Intel Atom N270 is
+# [/lib/firmware/]intel-ucode/06-1c-02. The xx-yy-zz in the filename
+# means cpu family, model and stepping in hex format.
+# In /proc/cpuinfo these values are given in decimal:
+# cpu family	: 6
+# model		: 28
+# stepping	: 2
+while read A B C D ; do
+    case "$A$B$C" in
+    vendor_id:*)V="$C";;
+    cpufamily:) F="`printf %02x "$D"`";;
+    model:*)    M="`printf %02x "$C"`";;
+    stepping:*) S="`printf %02x "$C"`";;
     esac
-fi
+done </proc/cpuinfo
+# If family/model/stepping is known, look for microcode file:
+case "$V-$F-$M-$S" in
+GenuineIntel-??-??-??)
+    if [ -f /lib/firmware/intel-ucode/"$F-$M-$S" ] ; then
+	prepend_intel_ucode /lib/firmware/intel-ucode/"$F-$M-$S" "$INITRD"
+    else
+	prepend_all_ucode n/a "$INITRD"
+    fi
+    E="$?"
+    ;;
+AuthenticAMD-??-??-??)
+    prepend_all_ucode n/a "$INITRD"
+    E="$?"
+    ;;
+esac
 exit "$E"
 
 # vi:set sw=4 noet ts=8 tw=71:
