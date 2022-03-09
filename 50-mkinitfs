@@ -4,24 +4,45 @@
 # (scripts in this directory are run during "make install").
 # This way each time you install a new vmlinuz-x.x.x into /boot,
 # corresponding initrd-x.x.x image will be automatically generated.
+#
+# Run as: 50-mkinitfs KVER VMLINUZ, e.g.:
+#	/etc/kernel/postinst.d/50-mkinitrd 4.8.17-hardened-r2 \
+#		/boot/vmlinuz-4.8.17-hardened-r2
 
-kernver="$1"
-vmlinuz="$2"
-initrd="${vmlinuz/vmlinuz/initrd}"
+KERNVER="$1"
+VMLINUZ="$2"
+INITRD="${VMLINUZ/vmlinuz/initrd}"
 
-if [ -e "$initrd" ] ; then
-    mv "$initrd" "$initrd.old"
+TDIR="/tmp/tmp-mkinitrd-$$"
+if ! mkdir -m 0750 "$TDIR" ; then
+    E="$?"
+    echo "ERROR: mkdir $TDIR" 1>&2
+    exit "$E"
+fi
+rm_rf_tdir() {
+    rm -rf "$TDIR"
+}
+trap rm_rf_tdir EXIT
+
+TMPINITDIR="$TDIR/${INITRD##*/}"
+
+if [ -e "$INITRD" ] ; then
+    if ! mv "$INITRD" "$INITRD.old" ; then
+	E="$?"
+	echo "ERROR: mv $INITRD $INITRD.old" 1>&2
+	exit "$E"
+    fi
 fi
 
-rm -rf "$initrd.tmp"
-if mkinitfs.sh -k "$kernver" "$initrd.tmp" \
-&& cd "$initrd.tmp" ; then
+rm -rf "$TMPINITDIR"
+if mkinitfs.sh -k "$KERNVER" "$TMPINITDIR" \
+&& cd "$TMPINITDIR" ; then
     # Check "find|cpio" pipeline without writing actual initrd image
     # first:
     if find . -print0 | cpio -o0Hnewc >/dev/null 2>&1 ; then
 	# Write bzipped initrd image:
 	if find . -print0 | cpio -ov0Hnewc \
-	| bzip2 >"$initrd" ; then
+	| bzip2 >"$INITRD" ; then
 	    E=0
 	else
 	    E="$?"
@@ -32,7 +53,6 @@ if mkinitfs.sh -k "$kernver" "$initrd.tmp" \
 else
     E="$?"
 fi
-rm -rf "$initrd.tmp"
 exit "$E"
 
 # vi:set sw=4 noet ts=8 tw=71:
