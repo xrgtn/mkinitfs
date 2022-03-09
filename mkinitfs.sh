@@ -52,7 +52,6 @@ mkdir_if_doesnt_exist() {
 }
 
 # Create a helper modlist.pl script:
-# TODO: add support for aliases and softdeps.
 cat >"$MODLIST_PL" <<'EOS'
 #!/usr/bin/perl
 
