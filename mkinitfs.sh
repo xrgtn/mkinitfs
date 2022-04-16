@@ -963,7 +963,19 @@ modules ext4 ext3 lz4_decompress xz_dec squashfs isofs
 # recovery is explicitly requested:
 if [ "z$RECOVERY" = "z1" ] || [ "z$ROOTDEV" = "z" ] \
 || ! busybox mount -o ro "$ROOTDEV" /mnt/root ; then
-    recovery
+    while : ; do
+	recovery
+	if ! busybox mountpoint -q /mnt/root ; then
+	    echo "ERROR: /mnt/root hasn't been mounted" \
+		' in recovery shell'
+	    if busybox mountpoint -q /mnt ; then
+		echo "NOTE: mount root on /mnt/root, not on /mnt"
+		busybox umount /mnt
+	    fi
+	else
+	    break
+	fi
+    done
 fi
 
 # Mount /usr filesystem (needed for udev?):
