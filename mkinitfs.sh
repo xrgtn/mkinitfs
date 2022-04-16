@@ -906,7 +906,7 @@ read A B KVER C </proc/version
 # (TODO: detect/load ATA modules besides ata_piix):
 modules scsi_mod usb-common usbcore usb-storage uas \
     xhci-hcd xhci-pci ehci-hcd ehci-pci ohci-hcd ohci-pci uhci-hcd \
-    libata ata_piix sata_nv \
+    libata ata_piix sata_nv ahci \
     dm-mod sd_common sd_mod cdrom sr_mod
 # We need keyboard support (i8042/atkbd/usb/hid) for reading
 # dm-crypt passphrase:
