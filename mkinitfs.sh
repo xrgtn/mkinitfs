@@ -524,8 +524,9 @@ EOF
 	cp --preserve=mode,timestamps "$KSRC$M" "$KDST$M"
     done <"${KDST}modlist.rdep"
     rm -f "$TMPOUT"
-    # Copy modules.order and modules.builtin files for /sbin/depmod:
-    for SFX in order builtin ; do
+    # Copy modules.order, modules.builtin and modules.builtin.modinfo
+    # files for /sbin/depmod:
+    for SFX in order builtin builtin.modinfo ; do
 	S="${KSRC}modules.$SFX"
 	T="${KDST}modules.$SFX"
 	if ! [ -e "$T" ] ; then
