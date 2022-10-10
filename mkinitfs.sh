@@ -499,7 +499,7 @@ scsi_mod usb-storage uas xhci-hcd xhci-pci ehci-hcd ehci-pci ohci-hcd
 ohci-pci uhci-hcd ata_piix ata_generic ahci ahci_platform pata_acpi
 sata_nv dm-mod dm-crypt sd_mod cdrom sr_mod
 
-libps2 serio atkbd i8042 hid hid-generic hidp usbhid
+libps2 serio atkbd i8042 hid hid-generic hidp usbhid input-leds
 
 aes_ti aesni-intel ccp-crypto crc32-pclmul crc32c-intel geode-aes
 serpent-sse2-i586 twofish-i586
@@ -632,6 +632,22 @@ sed -n '/^# XXX: \/init start/,/^# XXX: \/init end/p' <"$0" \
     >>"${INITFSDIR}init" ; # cut from '/init start' to '/init end'
 touch -r "$0" "${INITFSDIR}init" ; # copy timestamp from mkinitfs.sh
 
+# Dump current keyboard map to use at boot time:
+KMAP="kmap"
+KBDMODE="`busybox kbd_mode -C /dev/tty1 2>/dev/null`"
+if [ "z$?" = "z0" ]; then
+	case "z$KBDMODE" in
+	z*ASCII*) KMAP="$KMAP-a";;
+	z*UTF*)   KMAP="$KMAP-u";;
+	esac
+fi
+if busybox dumpkmap >"${INITFSDIR}$KMAP"; then
+	echo "dumped current keymap to $KMAP"
+else
+	rm -f "${INITFSDIR}$KMAP"
+fi
+
+# Exit mkinitfs.sh:
 exit
 
 # XXX: /init start:
@@ -911,12 +927,26 @@ modules scsi_mod usb-common usbcore usb-storage uas \
     dm-mod sd_common sd_mod cdrom sr_mod
 # We need keyboard support (i8042/atkbd/usb/hid) for reading
 # dm-crypt passphrase:
-modules libps2 serio atkbd i8042 hid hid-generic hidp usbhid
+modules libps2 serio atkbd i8042 hid hid-generic hidp usbhid input-leds
 
 # XXX: need to wait for mass-storage devices to be recognized
 # after loading drivers:
-printf "%s\n" "$0: waiting 1.5s for mass-storage devices..."
-sleep 1.5
+printf "%s\n" "$0: waiting 3.5s for mass-storage devices..."
+sleep 3.5
+
+# Load kmap if supplied:
+if [ -f "/kmap" ]; then
+    printf "%s\n" "$0: loading kmap"
+    busybox loadkmap <"/kmap"
+elif [ -f "/kmap-a" ]; then
+    printf "%s\n" "$0: loading ASCII kmap"
+    busybox kbd_mode -a -C /dev/tty1
+    busybox loadkmap <"/kmap-a"
+elif [ -f "/kmap-u" ]; then
+    printf "%s\n" "$0: loading Unicode kmap"
+    busybox kbd_mode -u -C /dev/tty1
+    busybox loadkmap <"/kmap-u"
+fi
 
 # Parse kernel commandline to find root volume ID or device
 # and to find out which volumes to decrypt:
