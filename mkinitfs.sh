@@ -499,7 +499,7 @@ scsi_mod usb-storage uas xhci-hcd xhci-pci ehci-hcd ehci-pci ohci-hcd
 ohci-pci uhci-hcd ata_piix ata_generic ahci ahci_platform pata_acpi
 sata_nv dm-mod dm-crypt sd_mod cdrom sr_mod
 
-libps2 serio atkbd i8042 hid hid-generic hidp usbhid input-leds
+serio i8042 serport libps2 atkbd hid hid-generic hidp usbhid input-leds
 
 aes_ti aesni-intel ccp-crypto crc32-pclmul crc32c-intel geode-aes
 serpent-sse2-i586 twofish-i586
@@ -927,7 +927,8 @@ modules scsi_mod usb-common usbcore usb-storage uas \
     dm-mod sd_common sd_mod cdrom sr_mod
 # We need keyboard support (i8042/atkbd/usb/hid) for reading
 # dm-crypt passphrase:
-modules libps2 serio atkbd i8042 hid hid-generic hidp usbhid input-leds
+modules serio i8042 serport libps2 atkbd hid hid-generic hidp usbhid \
+	input-leds
 
 # XXX: need to wait for mass-storage devices to be recognized
 # after loading drivers:
