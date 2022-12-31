@@ -691,6 +691,13 @@ ciphers() {
 	    modules algif_skcipher \
 		serpent_generic serpent-sse2-i586 "$M"
 	    ;;
+	twofish)
+	    # twofish requires algif_skcipher interface starting from
+	    # linux-6.1.1 (6.1.0 works without algif_skcipher just fine
+	    # BTW):
+	    modules algif_skcipher \
+		twofish_generic twofish-i586 "$M"
+	    ;;
 	xts)
 	    # If ecb.ko is not loaded for aes-xts-plain64, cryptsetup
 	    # fails with ioctl error:
