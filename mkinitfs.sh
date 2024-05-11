@@ -534,7 +534,7 @@ EOF
 	fi
     done
     # Generate depmod files for initrd subset of kernel modules:
-    if ! /sbin/depmod -b"${INITFSDIRNOTRAILINGSLASH}" \
+    if ! depmod -b"${INITFSDIRNOTRAILINGSLASH}" \
 	    -eF"/boot/System.map-$K" "$K" >"$TMPOUT" 2>&1 ; then
 	E="$?"
 	cat "$TMPOUT" >&2
